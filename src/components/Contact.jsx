@@ -15,7 +15,13 @@ function Contact() {
           <span className="contact-option-kicker">EXTERNAL MESSAGING</span>
           <h3>Chat on WhatsApp</h3>
           <p>This option takes you out of this portfolio and opens a direct WhatsApp conversation with me. It's best for quick messages.</p>
-          <a className="primary-btn whatsapp-button" href={`https://wa.me/${whatsappNumber}?text=${whatsappMessage}`} target="_blank" rel="noreferrer">Continue to WhatsApp <span>↗</span></a>
+          <a className="primary-btn whatsapp-button" href={`https://wa.me/2348136308576?text=${whatsappMessage}`}
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  Continue to WhatsApp <span>↗</span>
+</a>
+<small>You'll continue in the WhatsApp app or website.</small>
           <small>You'll continue in the WhatsApp app or website.</small>
         </article>
         <article className="contact-option onsite-option">

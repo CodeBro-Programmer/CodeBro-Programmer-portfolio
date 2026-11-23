@@ -135,7 +135,8 @@ function ChatAccess() {
       },
     });
     setBusy(false);
-    if (authError) setError(authError.message);
+    // if (authError) setError(authError.message);
+    if (authError) setError("Service unavailable for now");
     else
       setNotice(
         `A secure sign-in link has been sent to ${email.trim()}. Open it to enter your private on-site conversation.`,
