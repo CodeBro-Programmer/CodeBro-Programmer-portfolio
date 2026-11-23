@@ -9,6 +9,9 @@ function Footer() {
         <div className="social-links">
           <a href="https://github.com/CodeBro-Programmer" target="_blank" rel="noreferrer">GitHub <span>↗</span></a>
           <a href="#contact">Contact <span>↗</span></a>
+
+          <a href="./terms-of-service">Terms of Service <span>↗</span></a>
+          <a href="./privacy-policy">Privacy Policy <span>↗</span></a>
         </div>
         <div className="footer-bottom">
           <p className="copyright">© {year} CodeBro. All rights reserved.</p>

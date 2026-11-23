@@ -5,83 +5,117 @@ function ChatAccess() {
   const [mode, setMode] = useState("signup");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
   const [user, setUser] = useState(null);
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [loadingChat, setLoadingChat] = useState(false);
+
   const bottomRef = useRef(null);
 
+  // LOAD OR CREATE USER CONVERSATION
   const loadConversation = useCallback(async (activeUser) => {
     if (!activeUser || !supabase) return;
+
     setLoadingChat(true);
+    setError("");
+
     let { data: existing, error: fetchError } = await supabase
       .from("conversations")
       .select("*")
       .eq("recruiter_id", activeUser.id)
       .maybeSingle();
+
     if (fetchError) {
       setError(fetchError.message);
       setLoadingChat(false);
       return;
     }
+
     if (!existing) {
       const { data: created, error: createError } = await supabase
         .from("conversations")
         .insert({ recruiter_id: activeUser.id })
         .select()
         .single();
+
       if (createError) {
         const retry = await supabase
           .from("conversations")
           .select("*")
           .eq("recruiter_id", activeUser.id)
           .maybeSingle();
-        if (retry.error || !retry.data) setError(createError.message);
+
+        if (retry.error || !retry.data) {
+          setError(retry.error?.message || createError.message);
+        }
+
         existing = retry.data;
-      } else existing = created;
+      } else {
+        existing = created;
+      }
     }
+
     setConversation(existing || null);
+
     if (existing) {
       const { data, error: messagesError } = await supabase
         .from("messages")
         .select("*")
         .eq("conversation_id", existing.id)
         .order("created_at", { ascending: true });
-      if (messagesError) setError(messagesError.message);
-      else setMessages(data || []);
+
+      if (messagesError) {
+        setError(messagesError.message);
+      } else {
+        setMessages(data || []);
+      }
     }
+
     setLoadingChat(false);
   }, []);
 
+  // CHECK AUTHENTICATION SESSION
   useEffect(() => {
     document.title = "On-site Chat | CodeBro";
+
     if (!supabase) return undefined;
+
     supabase.auth.getSession().then(({ data }) => {
       if (data.session?.user) {
         setUser(data.session.user);
         loadConversation(data.session.user);
       }
     });
+
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         const activeUser = session?.user || null;
+
         setUser(activeUser);
-        if (activeUser) loadConversation(activeUser);
-        else {
+
+        if (activeUser) {
+          loadConversation(activeUser);
+        } else {
           setConversation(null);
           setMessages([]);
         }
-      },
+      }
     );
+
     return () => listener.subscription.unsubscribe();
   }, [loadConversation]);
 
+  // REALTIME MESSAGE LISTENER
   useEffect(() => {
     if (!conversation || !supabase) return undefined;
+
     const channel = supabase
       .channel(`recruiter-chat-${conversation.id}`)
       .on(
@@ -92,89 +126,154 @@ function ChatAccess() {
           table: "messages",
           filter: `conversation_id=eq.${conversation.id}`,
         },
-        (payload) =>
+        (payload) => {
           setMessages((current) =>
             current.some((item) => item.id === payload.new.id)
               ? current
-              : [...current, payload.new],
-          ),
+              : [...current, payload.new]
+          );
+        }
       )
       .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
     };
   }, [conversation]);
 
+  // SCROLL TO LATEST MESSAGE
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const submitAuth = async (event) => {
-    event.preventDefault();
+  // SWITCH BETWEEN SIGNUP AND LOGIN
+  const switchMode = (selectedMode) => {
+    setMode(selectedMode);
     setError("");
     setNotice("");
+
+    if (selectedMode === "signup") {
+      setAcceptedTerms(false);
+    }
+  };
+
+  // AUTHENTICATION
+  const submitAuth = async (event) => {
+    event.preventDefault();
+
+    setError("");
+    setNotice("");
+
     if (!isSupabaseConfigured) {
       setError(
-        "Chat is not connected yet. Add your Supabase project URL and anon key to the environment file.",
+        "Chat is not connected yet. Add your Supabase project URL and anon key to the environment file."
       );
       return;
     }
+
     if (mode === "signup" && !name.trim()) {
       setError("Please enter your name.");
       return;
     }
-    setBusy(true);
-    const { error: authError } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        shouldCreateUser: mode === "signup",
-        ...(mode === "signup"
-          ? { data: { full_name: name.trim(), role: "recruiter" } }
-          : {}),
-        emailRedirectTo: `${window.location.origin}/chat`,
-      },
-    });
-    setBusy(false);
-    // if (authError) setError(authError.message);
-    if (authError) setError("Service unavailable for now");
-    else
-      setNotice(
-        `A secure sign-in link has been sent to ${email.trim()}. Open it to enter your private on-site conversation.`,
-      );
-  };
 
-  const sendMessage = async (event) => {
-    event.preventDefault();
-    const content = draft.trim();
-    if (!content || !conversation || !user || !supabase) return;
-    setBusy(true);
-    const { data, error: sendError } = await supabase
-      .from("messages")
-      .insert({ conversation_id: conversation.id, sender_id: user.id, content })
-      .select()
-      .single();
-    setBusy(false);
-    if (sendError) setError(sendError.message);
-    else {
-      setMessages((current) =>
-        current.some((item) => item.id === data.id)
-          ? current
-          : [...current, data],
+    // REQUIRE AGREEMENT BEFORE SIGNUP
+    if (mode === "signup" && !acceptedTerms) {
+      setError(
+        "Please accept the Privacy Policy and Terms of Service to continue."
       );
-      setDraft("");
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const { error: authError } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+
+        options: {
+          shouldCreateUser: mode === "signup",
+
+          ...(mode === "signup"
+            ? {
+                data: {
+                  full_name: name.trim(),
+                  role: "recruiter",
+                },
+              }
+            : {}),
+
+          emailRedirectTo: `${window.location.origin}/chat`,
+        },
+      });
+
+      if (authError) {
+        setError(authError.message);
+      } else {
+        setNotice(
+          `A secure sign-in link has been sent to ${email.trim()}. Open it to enter your private on-site conversation.`
+        );
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
     }
   };
 
-  const signOut = async (event) => {
-    event.currentTarget.textContent = "signing out...";
-    await supabase?.auth.signOut();
+  // SEND MESSAGE
+  const sendMessage = async (event) => {
+    event.preventDefault();
+
+    const content = draft.trim();
+
+    if (!content || !conversation || !user || !supabase) return;
+
+    setBusy(true);
+    setError("");
+
+    try {
+      const { data, error: sendError } = await supabase
+        .from("messages")
+        .insert({
+          conversation_id: conversation.id,
+          sender_id: user.id,
+          content,
+        })
+        .select()
+        .single();
+
+      if (sendError) {
+        setError(sendError.message);
+      } else {
+        setMessages((current) =>
+          current.some((item) => item.id === data.id)
+            ? current
+            : [...current, data]
+        );
+
+        setDraft("");
+      }
+    } catch {
+      setError("Unable to send your message. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // SIGN OUT
+  const signOut = async () => {
+    if (!supabase) return;
+
+    await supabase.auth.signOut();
 
     setUser(null);
     setConversation(null);
     setMessages([]);
+    setDraft("");
   };
 
-  if (user)
+  // AUTHENTICATED CHAT PAGE
+  if (user) {
     return (
       <main className="chat-app-page">
         <header className="chat-app-header">
@@ -182,49 +281,67 @@ function ChatAccess() {
             &lt;<b>CodeBro</b>
             <span>/&gt;</span>
           </a>
+
           <button onClick={signOut} className="chat-signout">
             Sign out
           </button>
         </header>
 
         <section className="chat-panel">
-
           <div className="chat-panel-heading">
             <div className="chat-panner-heading-inner">
               <span className="chat-avatar">C</span>
-            <div>
-              <h1>Conversation with CodeBro(Eruchi)</h1>
-              <p>Send a message directly through this website.</p>
-              <p>Private Conversation.</p>
+
+              <div>
+                <h1>Conversation with CodeBro (Eruchi)</h1>
+                <p>Send a message directly through this website.</p>
+                <p>Private Conversation.</p>
+              </div>
             </div>
-            </div>
+
             <span className="chat-status">ON-SITE CHAT</span>
           </div>
 
           <div className="chat-messages" aria-live="polite">
             <div className="chat-welcome">
               <span>WELCOME</span>
+
               <p>
-                Thanks for reaching out. Introduce yourself and let me know what
-                you'd like to discuss. I'll reply here.
+                Thanks for reaching out. Introduce yourself and let me know
+                what you'd like to discuss. I'll reply here.
               </p>
             </div>
 
             {loadingChat && (
-              <p className="chat-loading">Preparing your conversation…</p>
+              <p className="chat-loading">
+                Preparing your conversation…
+              </p>
             )}
+
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`chat-message ${message.sender_id === user.id ? "mine" : "theirs"}`}
+                className={`chat-message ${
+                  message.sender_id === user.id ? "mine" : "theirs"
+                }`}
               >
                 <p>{message.content}</p>
-                <time>{new Date(message.created_at).toLocaleString()}</time>
+
+                <time>
+                  {new Date(message.created_at).toLocaleString()}
+                </time>
               </div>
             ))}
+
             <div ref={bottomRef} />
           </div>
-          {error && <p className="chat-inline-error">{error}</p>}
+
+          {error && (
+            <p className="chat-inline-error">
+              {error}
+            </p>
+          )}
+
           <form className="chat-composer" onSubmit={sendMessage}>
             <textarea
               value={draft}
@@ -232,22 +349,27 @@ function ChatAccess() {
               placeholder="Write your message…"
               rows="2"
             />
+
             <button disabled={busy || !draft.trim()}>
               {busy ? "Sending…" : "Send message"}
               <span>↗</span>
             </button>
           </form>
+
           <p className="chat-footnote">
-            Your conversation is private and remains available when you sign in
-            again.
+            Your conversation is private and remains available when you sign
+            in again.
           </p>
         </section>
+
         <footer className="chat-page-credit">
           Designed &amp; Developed by CodeBro Digital
         </footer>
       </main>
     );
+  }
 
+  // SIGNUP / LOGIN PAGE
   return (
     <main className="access-page">
       <div className="access-backdrop" aria-hidden="true">
@@ -255,22 +377,30 @@ function ChatAccess() {
         <span />
         <span />
       </div>
+
       <a className="access-brand" href="/">
         &lt;<b>CodeBro</b>
         <span>/&gt;</span>
       </a>
+
       <section className="access-card">
         <div className="access-kicker">
-          <span className="live-indicator" /> PRIVATE ON-SITE MESSAGING
+          <span className="live-indicator" />
+          PRIVATE ON-SITE MESSAGING
         </div>
+
         <h1>
-          Let's have a<br />
+          Let's have a
+          <br />
           <em>conversation.</em>
         </h1>
+
         <p className="access-intro">
           This is my website's built-in chat. Message me here without leaving
           the portfolio or switching to another messaging app.
         </p>
+
+        {/* SIGNUP / LOGIN TABS */}
         <div
           className="access-tabs"
           role="tablist"
@@ -279,30 +409,26 @@ function ChatAccess() {
           <button
             type="button"
             className={mode === "signup" ? "active" : ""}
-            onClick={() => {
-              setMode("signup");
-              setError("");
-              setNotice("");
-            }}
+            onClick={() => switchMode("signup")}
           >
             Create an account
           </button>
+
           <button
             type="button"
             className={mode === "login" ? "active" : ""}
-            onClick={() => {
-              setMode("login");
-              setError("");
-              setNotice("");
-            }}
+            onClick={() => switchMode("login")}
           >
             I have an account
           </button>
         </div>
+
+        {/* AUTHENTICATION FORM */}
         <form className="access-form" onSubmit={submitAuth}>
           {mode === "signup" && (
             <label>
               Your name
+
               <input
                 autoComplete="name"
                 value={name}
@@ -312,8 +438,10 @@ function ChatAccess() {
               />
             </label>
           )}
+
           <label>
             Email address
+
             <input
               type="email"
               autoComplete="email"
@@ -323,28 +451,73 @@ function ChatAccess() {
               required
             />
           </label>
-          <button className="access-submit" type="submit" disabled={busy}>
+
+          {/* PRIVACY POLICY AND TERMS AGREEMENT */}
+          {mode === "signup" && (
+            <label className="access-agreement">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(event) =>
+                  setAcceptedTerms(event.target.checked)
+                }
+              />
+
+              <span>
+                By creating an account, I acknowledge that I have read the{" "}
+                <a
+                  href="/privacy-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Privacy Policy
+                </a>{" "}
+                and agree to the{" "}
+                <a
+                  href="/terms-of-service"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Terms of Service
+                </a>
+                .
+              </span>
+            </label>
+          )}
+
+          <button
+            className="access-submit"
+            type="submit"
+            disabled={busy}
+          >
             {busy ? "Sending secure link…" : "Continue to on-site chat"}
             <span>↗</span>
           </button>
         </form>
+
+        {/* SUCCESS MESSAGE */}
         {notice && (
           <p className="form-notice success" role="status">
             {notice}
           </p>
         )}
+
+        {/* ERROR MESSAGE */}
         {error && (
           <p className="form-notice error" role="alert">
             {error}
           </p>
         )}
+
         <p className="access-privacy">
-          No password to remember. Your email is verified before access, and
-          your conversation is kept private.
+          No password to remember. Your email is verified before access,
+          and your conversation is kept private.
         </p>
       </section>
+
       <div className="access-bottom">
         <a href="/">← Back to portfolio</a>
+
         <span>Designed &amp; Developed by CodeBro Digital</span>
       </div>
     </main>

@@ -4154,3 +4154,38 @@ body::before {
         transition-duration: .01ms !important;
     }
 }
+
+
+.access-agreement {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 5px 0 18px;
+  color: #a6abb2;
+  font-size: .76rem;
+  line-height: 1.8;
+  cursor: pointer;
+}
+
+.access-agreement input {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  accent-color: #35a8ff;
+  cursor: pointer;
+}
+
+.access-agreement span {
+  flex: 1;
+}
+
+.access-agreement a {
+  color: #62bdff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.access-agreement a:hover {
+  color: #fff;
+}

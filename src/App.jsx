@@ -10,6 +10,8 @@ import Preloader from "./components/Preloader";
 import BackgroundFloaters from "./components/BackgroundFloaters";
 import ChatAccess from "./pages/ChatAccess";
 import AdminLogin from "./pages/AdminLogin";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import "./index.css";
 
 function App() {
@@ -17,6 +19,23 @@ function App() {
 
   if (path === "/chat") return <><BackgroundFloaters /><ChatAccess /></>;
   if (path === "/admin" || path === "/admin/login") return <><BackgroundFloaters /><AdminLogin /></>;
+  if (path === "/privacy-policy") {
+  return (
+    <>
+      <BackgroundFloaters />
+      <PrivacyPolicy />
+    </>
+  );
+}
+
+if (path === "/terms-of-service") {
+  return (
+    <>
+      <BackgroundFloaters />
+      <TermsOfService />
+    </>
+  );
+}
 
   return (
     <>

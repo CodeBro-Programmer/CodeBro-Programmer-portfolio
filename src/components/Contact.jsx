@@ -7,7 +7,7 @@ function Contact() {
       <div className="section-title">
         <span>GET IN TOUCH</span>
         <h2>Choose how you'd like to connect.</h2>
-        <p className="contact-section-intro">Whether you prefer a quick WhatsApp message or a conversation right here on my website, there's a way to reach me.</p>
+        <p className="contact-section-intro">Whether you prefer a quick Email,WhatsApp message or a conversation right here on my website, there's a way to reach me.</p>
       </div>
       <div className="contact-options">
         <article className="contact-option whatsapp-option">
@@ -21,8 +21,7 @@ function Contact() {
 >
   Continue to WhatsApp <span>↗</span>
 </a>
-<small>You'll continue in the WhatsApp app or website.</small>
-          <small>You'll continue in the WhatsApp app or website.</small>
+<small>You'll continue in the WhatsApp app.</small>
         </article>
         <article className="contact-option onsite-option">
           <div className="contact-option-icon chat-icon" aria-hidden="true">•••</div>
@@ -32,6 +31,22 @@ function Contact() {
           <a className="primary-btn onsite-chat-button" href="/chat">Start an on-site chat <span>↗</span></a>
           <small>Your conversation stays connected to this website.</small>
         </article>
+
+
+        <article className="contact-option email-option">
+  <div className="contact-option-icon" aria-hidden="true">@</div>
+  <span className="contact-option-kicker">EMAIL COMMUNICATION</span>
+  <h3>Send me an Email</h3>
+  <p>This option opens your default email application with my email address ready. It's best for detailed enquiries and professional communication.</p>
+
+  <a
+    className="primary-btn email-button"
+    href="mailto:codebrolibrary1@gmail.com"
+  >
+    Send an Email <span>↗</span>
+  </a>
+  <small>You'll continue in the Email App.</small>
+</article>
       </div>
     </section>
   );
