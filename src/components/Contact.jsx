@@ -40,11 +40,15 @@ function Contact() {
   <p>This option opens your default email application with my email address ready. It's best for detailed enquiries and professional communication.</p>
 
   <a
-    className="primary-btn email-button"
-    href="mailto:codebrolibrary1@gmail.com"
-  >
-    Send an Email <span>↗</span>
-  </a>
+  className="primary-btn email-button"
+  href={`mailto:codebrolibrary1@gmail.com?subject=${encodeURIComponent(
+    "Project Enquiry - CodeBro Digital"
+  )}&body=${encodeURIComponent(
+    "Hello Eruche,\n\nI would like to make an enquiry about your services.\n\n"
+  )}`}
+>
+  Send an Email <span>↗</span>
+</a>
   <small>You'll continue in the Email App.</small>
 </article>
       </div>
